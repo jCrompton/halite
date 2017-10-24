@@ -23,12 +23,14 @@ def normalize_input(input_data):
 
 
 class NeuralNet(object):
+    activations = {}
+    parameters = {}
 
-    def __init__(self, cached_model=None, seed=None, architecture=[12, 6], dropout=0.6):
+    def __init__(self, cached_model=None, seed=None, architecture=[12, 48, 12, 6], dropout=0.6):
         self._graph = tf.Graph()
         self.architecture = [PER_PLANET_FEATURES] + architecture
         self.dropout = dropout
-        self.activations = {}
+
         with self._graph.as_default():
             if seed is not None:
                 tf.set_random_seed(seed)
@@ -45,20 +47,28 @@ class NeuralNet(object):
             # Combine all the planets from all the frames together, so it's easier to share
             # the weights and biases between them in the network.
             flattened_frames = tf.reshape(self._features, [-1, PER_PLANET_FEATURES])
-            b1 = tf.get_variable('b1', [self.architecture[1]], initializer=tf.contrib.layers.xavier_initializer())
-            w1 = tf.get_variable('w1', [self.architecture[0], self.architecture[1]],
-                                 initializer=tf.contrib.layers.xavier_initializer())
-            self.activations['Z1'] = tf.add(tf.matmul(flattened_frames, w1), b1)
 
+            # Initialize the parameters from custom architecture
+            for i in range(len(self.architecture) - 1):
+                w_str = 'W{}'.format(i + 1)
+                b_str = 'b{}'.format(i + 1)
+                Wi = tf.get_variable(w_str, [self.architecture[i], self.architecture[i + 1]],
+                                     initializer=tf.contrib.layers.xavier_initializer(seed=1))
+                bi = tf.get_variable(b_str, [self.architecture[i + 1]],
+                                     initializer=tf.contrib.layers.xavier_initializer(seed=1))
+                self.parameters[w_str] = Wi
+                self.parameters[b_str] = bi
+
+            b1 = self.parameters['b1']
+            self.activations['Z1'] = tf.add(tf.matmul(flattened_frames, self.parameters['W1']), b1)
+
+            # Initialize the tensors from variables
             for i in range(len(self.architecture) - 2):
-                w_str = 'W{}'.format(i + 2)
-                b_str = 'b{}'.format(i + 2)
-                Wi = tf.get_variable(w_str, [self.architecture[i+1], self.architecture[i]],
-                                     initializer=tf.contrib.layers.xavier_initializer())
-                bi = tf.get_variable(b_str, [self.architecture[i]],
-                                     initializer=tf.contrib.layers.xavier_initializer())
-                Ai = tf.nn.relu(self.activations['Z{}'.format(i+1)])
+                Wi = self.parameters['W{}'.format(i + 2)]
+                bi = self.parameters['b{}'.format(i + 2)]
+                Ai = tf.nn.relu(self.activations['Z{}'.format(i + 1)])
                 Ai_dropout = tf.nn.dropout(Ai, self.dropout)
+                print(Ai_dropout.shape, Wi.shape, bi.shape, self.architecture, i)
                 self.activations['Z{}'.format(i + 2)] = tf.add(tf.matmul(Ai_dropout, Wi), bi)
 
             final_layer = tf.contrib.layers.fully_connected(self.activations['Z{}'.format(len(self.architecture)-1)],
