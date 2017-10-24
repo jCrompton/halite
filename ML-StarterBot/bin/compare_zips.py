@@ -6,6 +6,7 @@ import argparse
 from tempfile import TemporaryDirectory
 from contextlib import contextmanager
 
+
 @contextmanager
 def cd(newdir):
     prevdir = os.getcwd()
@@ -15,8 +16,8 @@ def cd(newdir):
     finally:
         os.chdir(prevdir)
 
+
 def compare(bot1, bot2, binary):
-    
     with TemporaryDirectory() as t:
         print("Running in tempdir {}".format(t))
         with cd(t):
@@ -45,21 +46,19 @@ def compare(bot1, bot2, binary):
                 # they use player 0 and player 1 instead of 1 and 2 as we do
                 m = re.match("Player #1(.*)came in rank #(\d)", out.splitlines()[-1])
                 bot1_won = (m[2] == '2')
-                if bot1_won: 
-                    bot1_wins += 1 
-                else: 
-                    bot2_wins += 1 
-                print ("Bot1 to Bot2 win ratio is {}:{}".format(bot1_wins, bot2_wins))
+                if bot1_won:
+                    bot1_wins += 1
+                else:
+                    bot2_wins += 1
+                print("Bot1 to Bot2 win ratio is {}:{}".format(bot1_wins, bot2_wins))
 
-                
+
 if __name__ == '__main__':
-    
     parser = argparse.ArgumentParser(description="Halite II training")
     parser.add_argument("bot1_zip", help="zipfile with the first bot")
     parser.add_argument("bot2_zip", help="zipfile with the second bot")
     parser.add_argument("halite_binary", help="location of halite binary")
 
     args = parser.parse_args()
-    
-    compare(*(os.path.abspath(i) for i in (args.bot1_zip, args.bot2_zip, args.halite_binary)))
 
+    compare(*(os.path.abspath(i) for i in (args.bot1_zip, args.bot2_zip, args.halite_binary)))

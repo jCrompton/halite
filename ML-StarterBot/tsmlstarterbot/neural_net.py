@@ -23,12 +23,12 @@ def normalize_input(input_data):
 
 
 class NeuralNet(object):
-    FIRST_LAYER_SIZE = 12
-    SECOND_LAYER_SIZE = 6
 
-    def __init__(self, cached_model=None, seed=None):
+    def __init__(self, cached_model=None, seed=None, architecture=[12, 6], dropout=0.6):
         self._graph = tf.Graph()
-
+        self.architecture = [PER_PLANET_FEATURES] + architecture
+        self.dropout = dropout
+        self.activations = {}
         with self._graph.as_default():
             if seed is not None:
                 tf.set_random_seed(seed)
@@ -45,14 +45,27 @@ class NeuralNet(object):
             # Combine all the planets from all the frames together, so it's easier to share
             # the weights and biases between them in the network.
             flattened_frames = tf.reshape(self._features, [-1, PER_PLANET_FEATURES])
+            b1 = tf.get_variable('b1', [self.architecture[1]], initializer=tf.contrib.layers.xavier_initializer())
+            w1 = tf.get_variable('w1', [self.architecture[0], self.architecture[1]],
+                                 initializer=tf.contrib.layers.xavier_initializer())
+            self.activations['Z1'] = tf.add(tf.matmul(flattened_frames, w1), b1)
 
-            first_layer = tf.contrib.layers.fully_connected(flattened_frames, self.FIRST_LAYER_SIZE)
-            second_layer = tf.contrib.layers.fully_connected(first_layer, self.SECOND_LAYER_SIZE)
+            for i in range(len(self.architecture) - 2):
+                w_str = 'W{}'.format(i + 2)
+                b_str = 'b{}'.format(i + 2)
+                Wi = tf.get_variable(w_str, [self.architecture[i+1], self.architecture[i]],
+                                     initializer=tf.contrib.layers.xavier_initializer())
+                bi = tf.get_variable(b_str, [self.architecture[i]],
+                                     initializer=tf.contrib.layers.xavier_initializer())
+                Ai = tf.nn.relu(self.activations['Z{}'.format(i+1)])
+                Ai_dropout = tf.nn.dropout(Ai, self.dropout)
+                self.activations['Z{}'.format(i + 2)] = tf.add(tf.matmul(Ai_dropout, Wi), bi)
 
-            third_layer = tf.contrib.layers.fully_connected(second_layer, 1, activation_fn=None)
+            final_layer = tf.contrib.layers.fully_connected(self.activations['Z{}'.format(len(self.architecture)-1)],
+                                                            1, activation_fn=None)
 
             # Group the planets back in frames.
-            logits = tf.reshape(third_layer, [-1, PLANET_MAX_NUM])
+            logits = tf.reshape(final_layer, [-1, PLANET_MAX_NUM])
 
             self._prediction_normalized = tf.nn.softmax(logits)
 

@@ -41,6 +41,7 @@ def fetch_data_dir(directory, limit):
 
     return all_data
 
+
 def fetch_data_zip(zipfilename, limit):
     """
     Loads up to limit games into Python dictionaries from a zipfile containing uncompressed replay files.
