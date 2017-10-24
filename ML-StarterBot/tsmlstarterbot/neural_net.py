@@ -26,7 +26,7 @@ class NeuralNet(object):
     activations = {}
     parameters = {}
 
-    def __init__(self, cached_model=None, seed=None, architecture=[12, 48, 12, 6], dropout=0.6):
+    def __init__(self, cached_model=None, seed=None, architecture=[64, 128, 256, 64], dropout=0.7):
         self._graph = tf.Graph()
         self.architecture = [PER_PLANET_FEATURES] + architecture
         self.dropout = dropout
@@ -64,12 +64,11 @@ class NeuralNet(object):
 
             # Initialize the tensors from variables
             for i in range(len(self.architecture) - 2):
-                Wi = self.parameters['W{}'.format(i + 2)]
+                wi = self.parameters['W{}'.format(i + 2)]
                 bi = self.parameters['b{}'.format(i + 2)]
-                Ai = tf.nn.relu(self.activations['Z{}'.format(i + 1)])
-                Ai_dropout = tf.nn.dropout(Ai, self.dropout)
-                print(Ai_dropout.shape, Wi.shape, bi.shape, self.architecture, i)
-                self.activations['Z{}'.format(i + 2)] = tf.add(tf.matmul(Ai_dropout, Wi), bi)
+                ai = tf.nn.relu(self.activations['Z{}'.format(i + 1)])
+                ai_dropout = tf.nn.dropout(ai, self.dropout)
+                self.activations['Z{}'.format(i + 2)] = tf.add(tf.matmul(ai_dropout, wi), bi)
 
             final_layer = tf.contrib.layers.fully_connected(self.activations['Z{}'.format(len(self.architecture)-1)],
                                                             1, activation_fn=None)
@@ -79,7 +78,8 @@ class NeuralNet(object):
 
             self._prediction_normalized = tf.nn.softmax(logits)
 
-            self._loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=self._target_distribution))
+            self._loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits,
+                                                                                labels=self._target_distribution))
 
             self._optimizer = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(self._loss)
             self._saver = tf.train.Saver()
